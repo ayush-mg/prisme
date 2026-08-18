@@ -1,0 +1,13 @@
+services:
+         db: 
+               image: postgis/postgis:16-3.4
+               environment:
+                      POSTGRESUSER: prism
+                      POSTGRESPASSWORD: prism
+                      POSTGRESDB: prism
+               ports:
+                       - "5432:5432"
+         redis:
+                 image: redis:7
+                 ports:
+                        - "6379:6379"

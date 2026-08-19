@@ -1,13 +1,11 @@
 import requests
 def runapiproof():
 	apiurl="http://127.0.0.1:8000/api/v1/analyze"
-	payload={"news":"The Strait of Hormuz is experiencing military blockades reducing capacity by 90 percent for 15 days."}
+	payload={"news":"The Strait of Hormuz is experiencing military blockades reducing capacity by 90 percent for 15 days.","currentinventory":100.0,"dailyconsumption":10.0}
 	noproxy={"http":None,"https":None}
-	print("Bypassing system proxy to contact Digital Twin...")
 	response=requests.post(apiurl,json=payload,proxies=noproxy)
-	print(f"Server Status Code: {response.status_code}")
 	if response.status_code==200:
-		print("Proof of End-to-End API Integration:")
+		print("Proof of Phase 4 Integration:")
 		print(response.json())
 	else:
 		print("API CRASH DETECTED")

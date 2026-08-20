@@ -1,0 +1,49 @@
+{
+	"scenarios":[
+		{
+			"id":"hormuz_closure",
+			"name":"Strait of Hormuz Full Closure",
+			"description":"Iran deploys naval mines and fast-attack craft across the Strait of Hormuz. Lloyd's of London suspends all transit insurance. 21 million BPD of crude flow halted.",
+			"corridorrisks":{"hormuz":0.98,"redsea":0.4,"suez":0.3,"cape":0.05,"malacca":0.05,"westafrica":0.1,"usgulf":0.08,"pacific":0.05},
+			"affectedsuppliers":["Ras Tanura","Basra Oil Terminal","Kharg Island","Al Ahmadi","Fujairah"],
+			"estimateddurationdays":30,
+			"pricespikepercent":45
+		},
+		{
+			"id":"redsea_houthi",
+			"name":"Red Sea Houthi Escalation",
+			"description":"Houthi forces launch coordinated anti-ship missile strikes on commercial tankers transiting Bab el-Mandeb. Multiple vessels hit. All carriers reroute via Cape of Good Hope.",
+			"corridorrisks":{"hormuz":0.2,"redsea":0.95,"suez":0.85,"cape":0.05,"malacca":0.05,"westafrica":0.1,"usgulf":0.08,"pacific":0.05},
+			"affectedsuppliers":["Yanbu","Novorossiysk"],
+			"estimateddurationdays":60,
+			"pricespikepercent":25
+		},
+		{
+			"id":"dual_blockade",
+			"name":"Simultaneous Hormuz + Suez Blockade (Doomsday)",
+			"description":"Coordinated geopolitical crisis: Iran closes Hormuz while Houthi forces blockade Bab el-Mandeb and Suez Canal simultaneously. India loses access to 65% of its crude import corridors.",
+			"corridorrisks":{"hormuz":0.99,"redsea":0.97,"suez":0.95,"cape":0.08,"malacca":0.1,"westafrica":0.15,"usgulf":0.12,"pacific":0.08},
+			"affectedsuppliers":["Ras Tanura","Basra Oil Terminal","Kharg Island","Al Ahmadi","Fujairah","Yanbu","Novorossiysk"],
+			"estimateddurationdays":90,
+			"pricespikepercent":120
+		},
+		{
+			"id":"russia_embargo",
+			"name":"Russian Oil Embargo Expansion",
+			"description":"G7 nations impose a complete maritime insurance ban on Russian crude exports. India's discounted Russian crude supply (40% of imports) halted overnight.",
+			"corridorrisks":{"hormuz":0.15,"redsea":0.2,"suez":0.6,"cape":0.1,"malacca":0.1,"westafrica":0.1,"usgulf":0.1,"pacific":0.7},
+			"affectedsuppliers":["Novorossiysk","Primorsk","Ust-Luga","Kozmino"],
+			"estimateddurationdays":180,
+			"pricespikepercent":35
+		},
+		{
+			"id":"iran_sanctions",
+			"name":"Iran Sanctions Maximum Pressure",
+			"description":"US reimplements maximum pressure sanctions on Iranian crude exports with secondary sanctions on Indian refiners processing Iranian oil. Kharg Island exports drop to zero.",
+			"corridorrisks":{"hormuz":0.5,"redsea":0.15,"suez":0.1,"cape":0.05,"malacca":0.05,"westafrica":0.1,"usgulf":0.08,"pacific":0.05},
+			"affectedsuppliers":["Kharg Island"],
+			"estimateddurationdays":365,
+			"pricespikepercent":15
+		}
+	]
+}

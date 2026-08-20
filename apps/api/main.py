@@ -21,7 +21,7 @@ async def websocketendpoint(websocket:WebSocket):
 	dailyconsumption=clientjson.get("dailyconsumption",10.0)
 	while True:
 		try:
-			newsfeed=getsupplychaindata()
+			newsfeed=await asyncio.to_thread(getsupplychaindata)
 			nlpresult=await asyncio.to_thread(extractriskdata,newsfeed)
 			calculatedpenalty=nlpresult.expecteddurationdays*1000
 			chokepoint="chhormuz" if nlpresult.capacityreduction>0.0 else ""
@@ -30,6 +30,6 @@ async def websocketendpoint(websocket:WebSocket):
 			reporttext=await asyncio.to_thread(generatereport,newsfeed,totalcost,survivalstats["deficit"],bestpath)
 			payload={"extracteddrop":nlpresult.capacityreduction,"extracteddays":nlpresult.expecteddurationdays,"newroute":bestpath,"newcost":totalcost,"survivalstats":survivalstats,"executivereport":reporttext}
 			await websocket.send_json(payload)
-			await asyncio.sleep(5)
+			await asyncio.sleep(1)
 		except Exception as err:
-			await asyncio.sleep(5)
+			await asyncio.sleep(1)

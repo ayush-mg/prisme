@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { useRef } from 'react'
 import { useCallback } from 'react'
 import { MapContainer } from 'react-leaflet'
-import { TileLayer } from 'react-leaflet'
+import { TileLayer, GeoJSON, Pane } from 'react-leaflet'
 import { Polyline } from 'react-leaflet'
 import { CircleMarker } from 'react-leaflet'
 import { Tooltip } from 'react-leaflet'
@@ -45,7 +45,7 @@ class ErrorBoundary extends React.Component{
 constructor(props){super(props);this.state={haserror:false}}
 static getDerivedStateFromError(){return{haserror:true}}
 render(){
-if(this.state.haserror){return<div className="flex items-center justify-center h-full bg-gray-950 text-red-400 text-sm font-mono">System recovery in progress...</div>}
+if(this.state.haserror){return<div className="flex items-center justify-center h-full bg-[#0f1722] text-[#b5a642] text-sm font-mono">System recovery in progress...</div>}
 return this.props.children
 }
 }
@@ -56,11 +56,18 @@ const[currentmode,setcurrentmode]=useState("demo")
 const[flyto,setflyto]=useState(null)
 const[selectedroute,setselectedroute]=useState(0)
 const[typedreport,settypedreport]=useState("")
+const[newsQueue,setNewsQueue]=useState([])
+const[worldGeo,setWorldGeo]=useState(null)
+const[indiaGeo,setIndiaGeo]=useState(null)
 const socketref=useRef(null)
 const reportref=useRef("")
 const typetimerref=useRef(null)
+const moderef=useRef("demo")
 useEffect(()=>{
+fetch("/world.json").then(r=>r.json()).then(data=>setWorldGeo(data)).catch(e=>console.error("Failed to load map data"))
+fetch("/india.json").then(r=>r.json()).then(data=>setIndiaGeo(data)).catch(e=>console.error("Failed to load India data"))
 let reconnecttimer=null
+let ismounted=true
 const connectws=()=>{
 const issecure=window.location.protocol==="https:"
 const protocol=issecure?"wss://":"ws://"
@@ -69,21 +76,35 @@ const wsurl=protocol+host+"/ws"
 const socket=new WebSocket(wsurl)
 socketref.current=socket
 socket.onopen=()=>{
+if(!ismounted)return
 setconnected(true)
-socket.send(JSON.stringify({mode:"demo"}))
+socket.send(JSON.stringify({mode:moderef.current}))
 }
 socket.onmessage=(event)=>{
+if(!ismounted)return
 try{
 const data=JSON.parse(event.data)
+if(data.mode&&data.mode!==moderef.current){
+return
+}
 setmatrixdata(data)
+if(data.news){
+setNewsQueue(prev=>{
+if(prev.length===0||prev[0]!==data.news){
+return[data.news,...prev].slice(0,50)
+}
+return prev
+})
+}
 if(data.report&&data.report!==reportref.current){
 reportref.current=data.report
 settypedreport("")
 if(typetimerref.current)clearInterval(typetimerref.current)
 let i=0
+const fullReport=data.report
 typetimerref.current=setInterval(()=>{
-if(i<data.report.length){
-settypedreport(prev=>prev+data.report.charAt(i))
+if(i<fullReport.length){
+settypedreport(fullReport.substring(0, i+1))
 i++
 }else{
 clearInterval(typetimerref.current)
@@ -93,13 +114,18 @@ clearInterval(typetimerref.current)
 }catch(e){console.error(e)}
 }
 socket.onclose=()=>{
+if(!ismounted)return
 setconnected(false)
 reconnecttimer=setTimeout(connectws,3000)
 }
-socket.onerror=()=>{setconnected(false)}
+socket.onerror=()=>{
+if(!ismounted)return
+setconnected(false)
+}
 }
 connectws()
 return()=>{
+ismounted=false
 if(socketref.current)socketref.current.close()
 if(typetimerref.current)clearInterval(typetimerref.current)
 if(reconnecttimer)clearTimeout(reconnecttimer)
@@ -107,7 +133,9 @@ if(reconnecttimer)clearTimeout(reconnecttimer)
 },[])
 const switchmode=useCallback((mode)=>{
 setcurrentmode(mode)
+moderef.current=mode
 setselectedroute(0)
+setNewsQueue([])
 if(socketref.current&&socketref.current.readyState===1){
 socketref.current.send(JSON.stringify({mode:mode}))
 }
@@ -119,23 +147,28 @@ const gridstats=matrixdata?.gridstats||{}
 const sprmetadata=matrixdata?.sprmetadata||{}
 const demoinfo=matrixdata?.demoinfo||{}
 const riskcorridors=[
-{name:"Hormuz",key:"hormuz",color:"#ef4444"},
-{name:"Red Sea",key:"redsea",color:"#f97316"},
-{name:"Suez",key:"suez",color:"#eab308"},
-{name:"Malacca",key:"malacca",color:"#06b6d4"},
-{name:"W.Africa",key:"westafrica",color:"#8b5cf6"},
-{name:"Americas",key:"americas",color:"#ec4899"},
-{name:"US Gulf",key:"usgulf",color:"#f43f5e"},
-{name:"Pacific",key:"pacific",color:"#14b8a6"},
-{name:"Cape",key:"cape",color:"#22c55e"}
+{name:"Hormuz",key:"hormuz"},
+{name:"Red Sea",key:"redsea"},
+{name:"Suez",key:"suez"},
+{name:"Malacca",key:"malacca"},
+{name:"W.Africa",key:"westafrica"},
+{name:"Americas",key:"americas"},
+{name:"US Gulf",key:"usgulf"},
+{name:"Pacific",key:"pacific"},
+{name:"Cape",key:"cape"}
 ]
+function getRiskColor(risk) {
+  if (risk >= 0.75) return "#8b0000";
+  if (risk >= 0.40) return "#b5a642";
+  return "#4b5563";
+}
 const sprtimelinedata=[
 {day:"Normal",spr:sprmetadata?.coveragedays||9.5},
 {day:"Current",spr:drawdown?.sprremainingdays||9.5},
 {day:"Projected",spr:Math.max(0,(drawdown?.sprremainingdays||9.5)-2)}
 ]
 const routecostdata=(rankedroutes||[]).slice(0,6).map((r)=>({
-name:(r?.origin||"Rt").substring(0,8),
+name:(r?.destination||"Rt").split(' (')[0].substring(0,12),
 cost:r?.totalcost||0
 }))
 const refineries=[
@@ -180,221 +213,208 @@ return"threat-low"
 }
 return(
 <ErrorBoundary>
-<div className="flex flex-col h-screen w-screen bg-gray-950 text-white overflow-hidden">
-<motion.header initial={{y:-50,opacity:0}} animate={{y:0,opacity:1}} transition={{duration:0.5}} className="h-11 glass flex items-center justify-between px-4 z-[2000] border-b border-gray-800 shrink-0">
-<div className="flex items-center gap-3">
-<ShieldAlert className="text-emerald-500 w-5 h-5"/>
-<span className="text-sm font-bold tracking-[0.15em] text-gray-200">INDIA ENERGY COMMAND</span>
-</div>
+<div className="flex flex-col h-screen w-screen bg-gray-950 text-white overflow-hidden relative">
+<motion.header initial={{y:-50,opacity:0}} animate={{y:0,opacity:1}} transition={{ type: "tween", duration: 0.2, ease: "linear" }} className="absolute top-0 left-0 w-full h-10 flex items-center justify-between z-[2000] pointer-events-none">
+<div className="flex items-center h-full pointer-events-auto border-b border-white/5 glass-panel px-6 w-full justify-between">
 <div className="flex items-center gap-4">
-<div className="flex items-center gap-1 text-[9px] font-mono text-gray-500">
-<Globe className="w-3 h-3"/>
+<div className="w-4 h-4 bg-[#b5a642] flex items-center justify-center opacity-90">
+<div className="w-1.5 h-1.5 border-[1px] border-black rounded-none"></div>
+</div>
+<div className="flex items-baseline gap-3">
+<span className="text-[11px] font-bold tracking-[0.2em] text-gray-200 uppercase font-sans">India Energy Command</span>
+<span className="text-[9px] font-mono text-gray-600 tracking-wider">IEC-OPCEN</span>
+</div>
+</div>
+<div className="flex items-center gap-6 absolute left-1/2 -translate-x-1/2">
+<div className="flex items-center gap-2.5 text-[9px] font-mono text-gray-500 bg-black/20 px-3 py-1 border border-white/5">
+<span className="text-gray-400 mr-1">NET:</span>
 <span>{gridstats?.refineries||0}R</span>
 <span>{gridstats?.originports||0}P</span>
 <span>{gridstats?.chokepoints||0}C</span>
 <span>{gridstats?.edges||0}E</span>
 </div>
-<div className="flex gap-1">
-<button onClick={()=>switchmode("demo")} title="DEMO MODE: Cycles through 55 simulated crisis headlines every 6 seconds for 5 minutes. Uses offline keyword parsing — zero API calls. Perfect for presentations." className={`text-[9px] font-mono px-2 py-0.5 rounded flex items-center gap-1 transition-all ${currentmode==="demo"?'bg-emerald-900/50 text-emerald-400 border border-emerald-700':'bg-gray-800/50 text-gray-500 border border-gray-700 hover:text-gray-300'}`}>
-<Play className="w-2.5 h-2.5"/>DEMO
-</button>
-<button onClick={()=>switchmode("live")} title="LIVE MODE: Connects to real-time Google News RSS feeds and Gemini AI for live geopolitical risk extraction. Uses API quota — hash-gated to prevent exhaustion." className={`text-[9px] font-mono px-2 py-0.5 rounded flex items-center gap-1 transition-all ${currentmode==="live"?'bg-red-900/50 text-red-400 border border-red-700':'bg-gray-800/50 text-gray-500 border border-gray-700 hover:text-gray-300'}`}>
-<Wifi className="w-2.5 h-2.5"/>LIVE
-</button>
-</div>
-<div className="flex items-center gap-1.5">
-<div className={`w-2 h-2 rounded-full ${connected?'bg-emerald-500 animate-pulse':'bg-red-500'}`}/>
-<span className="text-[9px] font-mono text-gray-400">{connected?"CONNECTED":"OFFLINE"}</span>
-</div>
-</div>
-</motion.header>
-{currentmode==="demo"&&demoinfo?.poolsize>0&&(
-<div className="h-5 bg-emerald-950/30 border-b border-emerald-900/30 flex items-center px-4 gap-2 shrink-0">
-<Radio className="w-3 h-3 text-emerald-500 animate-pulse"/>
-<span className="text-[9px] font-mono text-emerald-400">DEMO SIMULATION ACTIVE</span>
-<span className="text-[9px] font-mono text-gray-500">Headline {(demoinfo?.currentindex||0)+1}/{demoinfo?.poolsize||0}</span>
-<div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden ml-2">
-<div className="h-full bg-emerald-600 rounded-full transition-all duration-500" style={{width:`${(((demoinfo?.currentindex||0)+1)/(demoinfo?.poolsize||1))*100}%`}}/>
+{currentmode==="demo" && demoinfo?.poolsize>0 && (
+<div className="flex items-center gap-3 bg-black/20 px-3 py-1 border border-white/5">
+<span className="text-[9px] font-mono text-[#b5a642]">SEQ: {String(demoinfo.currentindex+1).padStart(2,'0')}/{String(demoinfo.poolsize).padStart(2,'0')}</span>
+<div className="w-20 h-[2px] bg-black/60 relative overflow-hidden">
+<div className="absolute top-0 left-0 h-full bg-[#b5a642] transition-all duration-300" style={{width:`${((demoinfo.currentindex+1)/demoinfo.poolsize)*100}%`}}/>
 </div>
 </div>
 )}
-<div className="flex flex-1 overflow-hidden min-h-0">
-<motion.div initial={{x:-280,opacity:0}} animate={{x:0,opacity:1}} transition={{duration:0.6,delay:0.1}} className="w-64 h-full flex flex-col gap-2.5 p-2.5 z-[1000] glass border-r border-gray-800 overflow-y-auto shrink-0">
-<div>
-<div className="flex items-center gap-2 mb-1.5">
-<AlertTriangle className="w-3 h-3 text-red-500"/>
-<h2 className="text-[9px] font-bold tracking-[0.12em] text-gray-400 uppercase">Corridor Risk Matrix</h2>
 </div>
-<div className="flex flex-col gap-1">
-{riskcorridors.map((c,i)=>{
-const risk=corridorrisks?.[c.key]||0
-return(
-<motion.div key={c.key} initial={{x:-15,opacity:0}} animate={{x:0,opacity:1}} transition={{delay:0.05*i,duration:0.3}} className={`p-1.5 rounded text-[10px] ${getthreatclass(risk)} flex items-center justify-between`}>
-<span className="font-medium">{c.name}</span>
-<div className="flex items-center gap-1.5">
-<div className="w-12 h-1 bg-gray-800 rounded-full overflow-hidden">
-<motion.div initial={{width:0}} animate={{width:`${risk*100}%`}} transition={{duration:0.8,delay:0.08*i}} className="h-full rounded-full" style={{background:c.color}}/>
+<div className="flex items-center gap-4">
+<div className="flex items-center gap-3 bg-black/20 px-4 py-1 border border-white/5 text-[10px] font-mono tracking-widest">
+<button onClick={()=>switchmode("demo")} className={`transition-colors ${currentmode==="demo"?'text-white':'text-gray-600 hover:text-gray-400'}`}>SIM</button>
+<span className="text-gray-800">|</span>
+<button onClick={()=>switchmode("live")} className={`transition-colors ${currentmode==="live"?'text-[#8b0000]':'text-gray-600 hover:text-gray-400'}`}>LIVE</button>
 </div>
-<span className="font-mono w-7 text-right text-[9px]" style={{color:c.color}}>{(risk*100).toFixed(0)}%</span>
-</div>
-</motion.div>
-)})}
+<div className="flex items-center gap-2 ml-2">
+<div className={`w-1.5 h-1.5 ${connected?'bg-[#b5a642] led-glow-gold':'bg-red-500 led-glow-crimson'}`}/>
+<span className="text-[9px] font-mono text-gray-400 tracking-wider pr-4">{connected?"SYS_ONLINE":"SYS_ERROR"}</span>
 </div>
 </div>
-<div className="border-t border-gray-800 pt-2.5">
-<div className="flex items-center gap-2 mb-1.5">
-<Droplet className="w-3 h-3 text-purple-400"/>
-<h2 className="text-[9px] font-bold tracking-[0.12em] text-gray-400 uppercase">SPR Reserve Status</h2>
 </div>
-<div className="grid grid-cols-2 gap-1.5">
-<div className="bg-black/40 p-1.5 rounded border border-gray-800">
-<p className="text-[8px] text-gray-500 uppercase">Remaining</p>
-<p className="text-base text-purple-400 font-mono">{(drawdown?.sprremainingdays||0).toFixed(1)}d</p>
-</div>
-<div className="bg-black/40 p-1.5 rounded border border-gray-800">
-<p className="text-[8px] text-gray-500 uppercase">Status</p>
-<p className={`text-xs font-bold ${drawdown?.status==="Stable"?'text-emerald-400':drawdown?.status==="Critical"?'text-red-400':'text-orange-400'}`}>{drawdown?.status||"--"}</p>
-</div>
-<div className="bg-black/40 p-1.5 rounded border border-gray-800">
-<p className="text-[8px] text-gray-500 uppercase">GDP Impact</p>
-<p className="text-xs text-red-400 font-mono">-${((drawdown?.gdppenalty||0)/1000000000).toFixed(2)}B</p>
-</div>
-<div className="bg-black/40 p-1.5 rounded border border-gray-800">
-<p className="text-[8px] text-gray-500 uppercase">Deficit</p>
-<p className="text-xs text-orange-400 font-mono">{((drawdown?.deficitbarrels||0)/1000000).toFixed(1)}M</p>
-</div>
-</div>
-<div className="h-16 w-full mt-1.5">
-<ResponsiveContainer width="100%" height="100%">
-<AreaChart data={sprtimelinedata}>
-<defs><linearGradient id="sprgradient" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#7c3aed" stopOpacity={0.4}/><stop offset="95%" stopColor="#7c3aed" stopOpacity={0}/></linearGradient></defs>
-<XAxis dataKey="day" tick={{fontSize:8,fill:'#6b7280'}} axisLine={false} tickLine={false}/>
-<YAxis domain={[0,10]} hide/>
-<Area type="monotone" dataKey="spr" stroke="#a855f7" fill="url(#sprgradient)" strokeWidth={2}/>
-</AreaChart>
-</ResponsiveContainer>
-</div>
-</div>
-<div className="border-t border-gray-800 pt-2.5">
-<div className="flex items-center gap-2 mb-1.5">
-<Activity className="w-3 h-3 text-emerald-400"/>
-<h2 className="text-[9px] font-bold tracking-[0.12em] text-gray-400 uppercase">Intelligence Feed</h2>
-</div>
-<div className="p-2 bg-black/40 rounded border border-gray-800 max-h-24 overflow-y-auto">
-<p className="text-[10px] text-gray-300 leading-relaxed">{matrixdata?.news||"Awaiting intelligence feed..."}</p>
-</div>
-</div>
-</motion.div>
-<div className="flex-1 h-full flex flex-col min-w-0">
-<div className="flex-1 relative min-h-0">
+</motion.header>
+
+<div className="absolute inset-0 z-0 pt-12">
+<div className="map-vignette"/>
+<div className="map-graticule"/>
 <MapContainer center={[20.0,50.0]} zoom={3} style={{width:"100%",height:"100%"}} zoomControl={false} attributionControl={false}>
-<TileLayer url="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png"/>
+<Pane name="basemap" style={{ zIndex: 200 }}>
+{worldGeo && <GeoJSON data={worldGeo} style={{fillColor:"#1f2937", color:"#374151", weight:0.8, opacity: 0.5, fillOpacity:1}} />}
+{indiaGeo && <GeoJSON data={indiaGeo} style={{fillColor:"#374151", color:"#4b5563", weight:1, opacity: 0.8, fillOpacity:1}} />}
+</Pane>
 <MapController flyto={flyto}/>
 {(rankedroutes||[]).slice(0,10).map((r,i)=>{
 const isselected=i===selectedroute
 const coords=r?.coordinates||[]
 if(!Array.isArray(coords)||coords.length<2)return null
 return(
-<Polyline key={i} positions={coords} color={isselected?'#10b981':i<3?'#374151':'#1f2937'} weight={isselected?4:i<3?2:1} opacity={isselected?0.9:i<3?0.4:0.15} dashArray={!isselected?'8,12':''} eventHandlers={{click:()=>{setselectedroute(i);if(coords.length>0)setflyto(coords[0])}}}>
-<Tooltip sticky className="!bg-gray-900/95 !border-gray-700 !text-gray-200">
+<Polyline key={i} positions={coords} color={isselected?'#b5a642':'#1f2937'} weight={isselected?2:1} opacity={isselected?1:0.6} dashArray="8,8" eventHandlers={{click:()=>{setselectedroute(i);if(coords.length>0)setflyto(coords[0])}}}>
+<Tooltip sticky className="!bg-[#131d26] !border-[#b5a642] !text-gray-400 shadow-[4px_4px_0px_rgba(0,0,0,0.8)] rounded-none">
 <div className="text-[10px] font-mono p-1">
-<p className="font-bold text-emerald-400">{r?.origin||"--"} → {r?.destination||"--"}</p>
+<p className="font-bold text-gray-400">{r?.origin||"--"} → {r?.destination||"--"}</p>
 <p className="text-gray-400">Cost: ${(r?.totalcost||0).toFixed(0)} | {r?.transitdays||0}d | {r?.distancenm||0}nm</p>
 <p className="text-gray-500">Country: {r?.origincountry||"--"} | Corridor: {r?.origincorridor||"--"}</p>
-{r?.chokepoints&&r.chokepoints.length>0&&<p className="text-red-400">Chokepoints: {r.chokepoints.join(", ")}</p>}
+{r?.chokepoints&&r.chokepoints.length>0&&<p className="text-[#8b0000]">Chokepoints: {r.chokepoints.join(", ")}</p>}
 </div>
 </Tooltip>
 </Polyline>
 )})}
 {refineries.map((r,i)=>(
 <CircleMarker key={`ref-${i}`} center={[r[0],r[1]]} radius={Math.max(3,Math.sqrt(r[3]/80000))} color="#3b82f6" fillColor="#60a5fa" fillOpacity={0.7} weight={2}>
-<Popup><div className="text-[10px]"><p className="font-bold text-blue-400">{r[2]}</p><p className="text-gray-400 font-mono">{(r[3]/1000).toFixed(0)}K BPD</p><p className="text-gray-500">Indian Refinery</p></div></Popup>
+<Popup><div className="text-[10px]"><p className="font-bold text-gray-400">{r[2]}</p><p className="text-gray-400 font-mono">{(r[3]/1000).toFixed(0)}K BPD</p><p className="text-gray-500">Indian Refinery</p></div></Popup>
 </CircleMarker>
 ))}
 {sprlocations.map((s,i)=>(
-<CircleMarker key={`spr-${i}`} center={[s[0],s[1]]} radius={6} color="#7c3aed" fillColor="#a855f7" fillOpacity={0.7} weight={2}>
-<Popup><div className="text-[10px]"><p className="font-bold text-purple-400">{s[2]}</p><p className="text-gray-400 font-mono">{s[3]}M tonnes</p><p className="text-gray-500">Strategic Petroleum Reserve</p></div></Popup>
+<CircleMarker key={`spr-${i}`} center={[s[0],s[1]]} radius={6} color="#9333ea" fillColor="#a855f7" fillOpacity={0.7} weight={2}>
+<Popup><div className="text-[10px]"><p className="font-bold text-gray-400">{s[2]}</p><p className="text-gray-400 font-mono">{s[3]}M tonnes</p><p className="text-gray-500">Strategic Petroleum Reserve</p></div></Popup>
 </CircleMarker>
 ))}
 {originports.map((o,i)=>(
-<CircleMarker key={`org-${i}`} center={[o[0],o[1]]} radius={4} color="#f59e0b" fillColor="#fbbf24" fillOpacity={0.7} weight={2}>
-<Popup><div className="text-[10px]"><p className="font-bold text-amber-400">{o[2]}</p><p className="text-gray-400">{o[3]}</p><p className="text-gray-500">Crude Origin Port</p></div></Popup>
+<CircleMarker key={`org-${i}`} center={[o[0],o[1]]} radius={4} color="#9ca3af" fillColor="#e5e7eb" fillOpacity={0.8} weight={2}>
+<Popup><div className="text-[10px]"><p className="font-bold text-gray-400">{o[2]}</p><p className="text-gray-400">{o[3]}</p><p className="text-gray-500">Crude Origin Port</p></div></Popup>
 </CircleMarker>
 ))}
-{chokepoints.map((c,i)=>(
-<CircleMarker key={`chk-${i}`} center={[c[0],c[1]]} radius={5} color="#ef4444" fillColor="#f87171" fillOpacity={0.6} weight={2}>
-<Tooltip permanent direction="right" offset={[8,0]} className="!bg-transparent !border-0 !shadow-none !p-0"><span className="text-[8px] font-mono text-red-400 bg-black/80 px-1 py-0.5 rounded">{c[2]}</span></Tooltip>
-<Popup><div className="text-[10px]"><p className="font-bold text-red-400">{c[2]}</p><p className="text-gray-400 font-mono">{c[3]}M BPD capacity</p><p className="text-gray-500">Maritime Chokepoint</p></div></Popup>
+{chokepoints.map((c,i)=>{
+const cpToCorridor={"Strait of Hormuz":"hormuz","Bab el-Mandeb":"redsea","Suez Canal":"suez","Cape of Good Hope":"cape","Strait of Malacca":"malacca","Mozambique Ch.":"cape"};
+const cpRisk = corridorrisks[cpToCorridor[c[2]]] || 0;
+const isHighRisk = cpRisk > 0.4;
+return (
+<CircleMarker key={`chk-${i}`} center={[c[0],c[1]]} radius={isHighRisk?6:4} color="#b5a642" fillColor="#b5a642" fillOpacity={0.8} weight={2}>
+<Tooltip direction="right" offset={[8,0]} className="!bg-transparent !border-0 !shadow-none !p-0"><span className="text-[8px] font-mono text-[#b5a642] bg-black/80 px-1 py-0.5 rounded-none">{c[2]}</span></Tooltip>
+<Popup><div className="text-[10px]"><p className="font-bold text-[#8b0000]">{c[2]}</p><p className="text-gray-400 font-mono">{c[3]}M BPD capacity</p><p className="text-gray-500">Maritime Chokepoint</p></div></Popup>
 </CircleMarker>
-))}
+)})}
 </MapContainer>
-<motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.8}} className="absolute top-3 right-3 z-[1000] glass p-2 rounded-lg">
-<div className="flex items-center gap-1.5 mb-1.5"><Eye className="w-3 h-3 text-emerald-400"/><span className="text-[8px] font-bold tracking-[0.12em] text-gray-400 uppercase">Legend</span></div>
-<div className="flex flex-col gap-0.5 text-[9px]">
-<div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-blue-500"/><span className="text-gray-400">Refinery</span></div>
-<div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-purple-500"/><span className="text-gray-400">SPR</span></div>
-<div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-amber-500"/><span className="text-gray-400">Origin Port</span></div>
-<div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-red-500"/><span className="text-gray-400">Chokepoint</span></div>
+<motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{ type: "tween", duration: 0.2, ease: "linear" }} className="absolute top-16 right-6 z-[1000] glass-panel p-3 rounded-none pointer-events-none">
+<div className="flex items-center gap-1.5 mb-2"><span className="text-[9px] font-bold clean-header text-gray-400">Legend</span></div>
+<div className="flex flex-col gap-2 text-[10px]">
+<div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-blue-500"/><span className="text-gray-400">Refinery</span></div>
+<div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-purple-500"/><span className="text-gray-400">SPR</span></div>
+<div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-gray-300"/><span className="text-gray-400">Origin Port</span></div>
+<div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[#b5a642] led-glow-gold"/><span className="text-gray-400">High Risk Chokepoint</span></div>
 </div>
 </motion.div>
 </div>
-<motion.div initial={{y:50,opacity:0}} animate={{y:0,opacity:1}} transition={{delay:0.3,duration:0.5}} className="h-44 glass border-t border-gray-800 flex shrink-0">
-<div className="flex-1 p-2.5 border-r border-gray-800 overflow-y-auto">
-<div className="flex items-center gap-2 mb-1.5">
-<Ship className="w-3 h-3 text-emerald-400"/>
-<h2 className="text-[9px] font-bold tracking-[0.12em] text-gray-400 uppercase">Adaptive Procurement Rankings</h2>
-<span className="text-[8px] font-mono text-gray-600 ml-auto">{(rankedroutes||[]).length} routes</span>
+
+<motion.div initial={{x:-320,opacity:0}} animate={{x:0,opacity:1}} transition={{ type: "tween", duration: 0.3, ease: "easeOut" }} className="absolute top-12 left-0 bottom-0 w-[300px] z-[1000] glass-panel p-5 overflow-y-auto flex flex-col gap-8 ">
+<div>
+<div className="flex items-center gap-2 mb-3">
+<h2 className="text-[10px] font-bold clean-header text-gray-300 tracking-[0.08em]">Corridor Risk Matrix</h2>
 </div>
-<div className="flex flex-col gap-0.5">
-{(rankedroutes||[]).slice(0,8).map((r,i)=>{
-const maxcost=(rankedroutes||[]).length>0?(rankedroutes[rankedroutes.length-1]?.totalcost||1):1
+<div className="flex flex-col gap-1.5">
+{riskcorridors.map((c)=>{
+const risk=corridorrisks?.[c.key]||0
 return(
-<motion.div key={i} initial={{x:-15,opacity:0}} animate={{x:0,opacity:1}} transition={{delay:0.03*i,duration:0.25}} onClick={()=>{setselectedroute(i);const coords=r?.coordinates;if(Array.isArray(coords)&&coords.length>0)setflyto(coords[0])}} className={`flex items-center gap-2 p-1 rounded cursor-pointer transition-all text-[10px] ${i===selectedroute?'bg-emerald-950/30 border border-emerald-800/50':'hover:bg-gray-800/30 border border-transparent'}`}>
-<span className={`font-bold w-4 ${i===selectedroute?'text-emerald-400':'text-gray-600'}`}>#{i+1}</span>
-<div className="flex-1 min-w-0">
-<p className="font-medium truncate">{r?.origin||"--"} → {r?.destination||"--"}</p>
-<div className="h-1 bg-gray-800 rounded-full overflow-hidden mt-0.5">
-<div className="h-full rounded-full transition-all duration-700" style={{width:`${Math.max(5,100-((r?.totalcost||0)/maxcost)*80)}%`,background:i===0?'#10b981':i<3?'#3b82f6':'#4b5563'}}/>
+<motion.div key={c.key} initial={{x:-15,opacity:0}} animate={{x:0,opacity:1}} transition={{ type: "tween", duration: 0.2, ease: "linear" }} className={`p-1.5 rounded-none text-[11px] ${getthreatclass(risk)} flex items-center justify-between`}>
+<span className="font-medium">{c.name}</span>
+<div className="flex items-center gap-2">
+<div className="w-16 h-1 bg-gray-800 rounded-none overflow-hidden">
+<motion.div initial={{width:0}} animate={{width:`${risk*100}%`}} transition={{ type: "tween", duration: 0.2, ease: "linear" }} className="h-full rounded-none" style={{background:getRiskColor(risk)}}/>
 </div>
+<span className="font-mono w-8 text-right text-[10px]" style={{color:getRiskColor(risk)}}>{(risk*100).toFixed(0)}%</span>
 </div>
-<div className="flex gap-2 text-[8px] font-mono text-gray-500 shrink-0">
-<span>{r?.transitdays||0}d</span>
-<span>${(r?.totalcost||0).toFixed(0)}</span>
-<span>{r?.distancenm||0}nm</span>
-</div>
-{r?.chokepoints&&r.chokepoints.length>0&&<div className="flex gap-0.5 shrink-0">{r.chokepoints.slice(0,2).map((cp,ci)=>(<span key={ci} className="text-[7px] bg-red-950/50 text-red-400 px-1 rounded">{(cp||"").substring(0,8)}</span>))}</div>}
 </motion.div>
 )})}
 </div>
 </div>
-<div className="w-56 p-2.5 flex flex-col shrink-0">
-<div className="flex items-center gap-2 mb-1.5">
-<TrendingDown className="w-3 h-3 text-cyan-400"/>
-<h2 className="text-[9px] font-bold tracking-[0.12em] text-gray-400 uppercase">Cost Analysis</h2>
+<div className=" pt-6 pb-2">
+<div className="text-gray-500 text-[10px] font-semibold uppercase tracking-[0.08em] mb-1">Strategic Reserve Capacity</div>
+<div className="text-6xl font-bold font-mono text-gray-100 leading-none tracking-tighter my-2">{(drawdown?.sprremainingdays||0).toFixed(1)}<span className="text-2xl text-gray-600 font-sans tracking-normal ml-1">d</span></div>
+<div className="text-[11px] text-white/40 mt-4 flex flex-col gap-1.5 min-w-[200px]">
+<div className="flex justify-between"><span>Status:</span> <span className={drawdown?.status==="Stable"?'text-gray-400':'text-[#8b0000] font-bold'}>{drawdown?.status||"Stable"}</span></div>
+<div className="flex justify-between"><span>Drawdown:</span> <span className="font-mono">{(drawdown?.drawdowndays||0).toFixed(1)}d</span></div>
+<div className="flex justify-between"><span>GDP Impact:</span> <span className="font-mono text-[#8b0000]">-${((drawdown?.gdppenalty||0)/1000000000).toFixed(2)}B</span></div>
 </div>
-<div className="flex-1">
+</div>
+<div className=" pt-6 pb-2">
+<div className="flex items-center gap-2 mb-3">
+<h2 className="text-[10px] font-bold clean-header text-gray-300 tracking-[0.08em]">Intelligence Feed</h2>
+</div>
+<div className="flex flex-col gap-3 relative">
+{newsQueue.length>0?newsQueue.map((item,idx)=>(
+<p key={idx} className={`text-[11px] leading-relaxed transition-all duration-300 ${idx===0?'text-gray-200 font-medium':'text-gray-600 border-l border-white/10 pl-2'}`}>{item}</p>
+)):(
+<p className="text-[11px] text-gray-500 leading-relaxed italic">Awaiting intelligence feed...</p>
+)}
+</div>
+</div>
+</motion.div>
+
+<motion.div initial={{y:50,opacity:0}} animate={{y:0,opacity:1}} transition={{ type: "tween", duration: 0.3, ease: "easeOut" }} className="absolute bottom-6 right-6 z-[1000] glass-panel p-4 w-72 rounded-none">
+<div className="flex items-center gap-2 mb-3">
+<h2 className="text-[10px] font-bold clean-header text-gray-300 tracking-[0.08em]">Cost Analysis</h2>
+</div>
+<div className="h-32 w-full">
 <ResponsiveContainer width="100%" height="100%">
-<BarChart data={routecostdata} barSize={10}>
-<CartesianGrid strokeDasharray="3 3" stroke="#1f2937"/>
-<XAxis dataKey="name" tick={{fontSize:7,fill:'#6b7280'}} axisLine={false} tickLine={false}/>
-<YAxis tick={{fontSize:7,fill:'#6b7280'}} axisLine={false} tickLine={false}/>
-<Bar dataKey="cost" radius={[3,3,0,0]}>
-{routecostdata.map((entry,i)=>(<Cell key={i} fill={i===0?'#10b981':i<3?'#3b82f6':'#4b5563'}/>))}
+<BarChart data={routecostdata} barSize={12}>
+<CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false}/>
+<XAxis dataKey="name" tick={{fontSize:7,fill:"#6b7280",angle:-35,textAnchor:"end",dy:10}} interval={0} axisLine={false} tickLine={false} height={40}/>
+<YAxis tick={{fontSize:9,fill:'#6b7280',fontFamily:'JetBrains Mono'}} axisLine={false} tickLine={false} width={30}/>
+<Bar dataKey="cost" radius={[0,0,0,0]}>
+{routecostdata.map((entry,i)=>(<Cell key={i} fill={i===0?'url(#goldGradient)':'#374151'}/>))}
 </Bar>
+<defs>
+<linearGradient id="goldGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#b5a642"/><stop offset="100%" stopColor="#7c722e"/></linearGradient>
+</defs>
 </BarChart>
 </ResponsiveContainer>
 </div>
+</motion.div>
+
+<motion.div initial={{y:50,opacity:0}} animate={{y:0,opacity:1}} transition={{ type: "tween", duration: 0.3, ease: "easeOut", delay:0.1 }} className="absolute bottom-6 left-[340px] right-[320px] z-[1000] glass-panel p-4 rounded-none max-w-2xl mx-auto flex flex-col max-h-[300px]">
+<div className="flex items-center gap-2 mb-3 shrink-0">
+<h2 className="text-[10px] font-bold clean-header text-gray-300 tracking-[0.08em]">Procurement Operations</h2>
+<span className="text-[10px] font-mono text-gray-500 ml-auto bg-white/5 px-2 py-0.5 rounded-none">{(rankedroutes||[]).length} ACTIVE CORRIDORS</span>
+</div>
+<div className="mb-4 p-3 border-l-2 border-[#b5a642] bg-white/5 rounded-none shrink-0">
+<div className="flex items-center gap-2 mb-1"><div className="w-1.5 h-1.5 bg-[#b5a642] rounded-none animate-pulse led-glow-gold"></div><span className="text-[9px] font-bold tracking-[0.12em] text-[#b5a642] uppercase">Live Intelligence Integration</span></div>
+<p className="text-[11px] text-gray-200 leading-relaxed font-sans">{typedreport||"Awaiting routing directive..."}<span className="animate-pulse text-[#b5a642] ml-0.5">|</span></p>
+</div>
+<div className="flex flex-col gap-1 overflow-y-auto pr-2 flex-1">
+<div className="grid grid-cols-[16px_1fr_40px_50px_50px] gap-3 text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1 pb-1 ">
+<span>#</span><span>Origin → Destination</span><span className="text-right">Days</span><span className="text-right">Cost</span><span className="text-right">Dist</span>
+</div>
+{(rankedroutes||[]).slice(0,5).map((r,i)=>{
+const maxcost=(rankedroutes||[]).length>0?(rankedroutes[rankedroutes.length-1]?.totalcost||1):1
+return(
+<motion.div key={i} initial={{x:-15,opacity:0}} animate={{x:0,opacity:1}} transition={{ type: "tween", duration: 0.2, ease: "linear" }} onClick={()=>{setselectedroute(i);const coords=r?.coordinates;if(Array.isArray(coords)&&coords.length>0)setflyto(coords[0])}} className={`grid grid-cols-[16px_1fr_40px_50px_50px] gap-3 items-center p-1.5 rounded-none cursor-pointer transition-all text-[11px] ${i===selectedroute?'bg-[#b5a642]/10 border-l border-[#b5a642]':'hover:bg-white/5 border-l border-transparent'}`}>
+<span className={`font-bold ${i===selectedroute?'text-[#b5a642]':'text-gray-600'}`}>{i+1}</span>
+<div className="min-w-0">
+<p className={`font-medium truncate ${i===selectedroute?'text-gray-200':'text-gray-400'}`}>{r?.origin||"--"} → {r?.destination||"--"}</p>
+<div className="h-0.5 bg-gray-800 rounded-none overflow-hidden mt-1">
+<div className="h-full rounded-none transition-all duration-700" style={{width:`${Math.max(5,100-((r?.totalcost||0)/maxcost)*80)}%`,background:i===0?'#b5a642':'#374151'}}/>
+</div>
+</div>
+<span className="font-mono text-gray-400 text-right">{r?.transitdays||0}d</span>
+<span className="font-mono text-gray-400 text-right">${(r?.totalcost||0).toFixed(0)}</span>
+<span className="font-mono text-gray-500 text-right">{r?.distancenm||0}nm</span>
+</motion.div>
+)})}
 </div>
 </motion.div>
-</div>
-</div>
-<motion.div initial={{y:20,opacity:0}} animate={{y:0,opacity:1}} transition={{delay:0.5,duration:0.4}} className="h-9 glass border-t border-gray-800 flex items-center px-4 gap-3 z-[1500] shrink-0">
-<Zap className="w-3 h-3 text-emerald-500"/>
-<span className="text-[8px] font-bold tracking-[0.12em] text-emerald-500 uppercase shrink-0">AI Advisory</span>
-<div className="flex-1 overflow-hidden">
-<p className="text-[10px] text-gray-300 font-mono truncate">{typedreport||"Initializing advisory engine..."}<span className="animate-pulse text-emerald-500">|</span></p>
-</div>
-</motion.div>
+
 </div>
 </ErrorBoundary>
 )

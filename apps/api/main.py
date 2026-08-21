@@ -48,6 +48,7 @@ async def websocketendpoint(ws:WebSocket):
 	currentmode="demo"
 	activescenario="hormuz_closure"
 	demostate={"pool":[],"index":0,"lastupdated":time.time()}
+	historical_risks={}
 	lastpayload=None
 	try:
 		demostate["pool"]=feed.loaddemoheadlines()
@@ -78,7 +79,10 @@ async def websocketendpoint(ws:WebSocket):
 					demostate["index"]=(demostate["index"]+1)%max(1,len(demostate["pool"]))
 					demostate["lastupdated"]=time.time()
 			try:
-				feedresult=feed.getsupplychaindata(mode=currentmode,scenarioid=activescenario,demostate=demostate)
+				if currentmode=="live":
+					feedresult=await asyncio.to_thread(feed.getsupplychaindata,mode=currentmode,scenarioid=activescenario,demostate=demostate)
+				else:
+					feedresult=feed.getsupplychaindata(mode=currentmode,scenarioid=activescenario,demostate=demostate)
 			except:
 				feedresult={"source":"fallback","data":"Fallback: Hormuz tensions escalating."}
 			newstext=feedresult.get("data","")
@@ -99,12 +103,25 @@ async def websocketendpoint(ws:WebSocket):
 						corridorrisks={"hormuz":0.5,"redsea":0.2}
 				else:
 					try:
-						corridorrisks=extractor.extractriskdata(newstext,geminikey)
+						corridorrisks=await asyncio.to_thread(extractor.extractriskdata,newstext,geminikey)
 					except:
 						try:
 							corridorrisks=extractor.keywordparse(newstext)
 						except:
 							corridorrisks={"hormuz":0.5,"redsea":0.2}
+				try:
+					for corridor in corridorrisks:
+						if corridor in historical_risks:
+							historical_risks[corridor]=round(max(historical_risks[corridor]*0.95,corridorrisks[corridor]),3)
+						else:
+							historical_risks[corridor]=corridorrisks[corridor]
+					for corridor in list(historical_risks.keys()):
+						if corridor not in corridorrisks:
+							historical_risks[corridor]=round(historical_risks[corridor]*0.95,3)
+					corridorrisks=historical_risks.copy()
+				except Exception as e:
+					print("Decay error:", e)
+
 				try:
 					routedata=engines.findallroutes(griddata,corridorrisks)
 				except:
@@ -117,7 +134,7 @@ async def websocketendpoint(ws:WebSocket):
 					drawdowndata={"sprremainingdays":9.5,"drawdowndays":0,"deficitbarrels":0,"gdppenalty":0,"stockoutdays":0,"stockoutbarrels":0,"status":"Unknown"}
 				try:
 					if currentmode=="live":
-						report=extractor.generatereport(routedata,drawdowndata,corridorrisks,geminikey)
+						report=await asyncio.to_thread(extractor.generatereport,routedata,drawdowndata,corridorrisks,geminikey)
 					else:
 						report=extractor.templatereport(routedata,drawdowndata)
 				except:

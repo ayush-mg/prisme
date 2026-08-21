@@ -61,7 +61,7 @@ def generatereport(routedata,drawdowndata,corridorrisks,apikey):
 	url="https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key="+apikey
 	bestroute=routedata[0]if len(routedata)>0 else{}
 	context=json.dumps({"bestroute":{"origin":bestroute.get("origin","Unknown"),"destination":bestroute.get("destination","Unknown"),"transitdays":bestroute.get("transitdays",0),"totalcost":bestroute.get("totalcost",0),"chokepoints":bestroute.get("chokepoints",[])},"sprstatus":{"remaining":drawdowndata.get("sprremainingdays",9.5),"status":drawdowndata.get("status","Unknown"),"gdpimpact":drawdowndata.get("gdppenalty",0)},"routesanalyzed":len(routedata)})
-	prompt="You are a senior energy security advisor briefing the Indian Cabinet Committee on Security. Write exactly 2 sentences. First sentence: the recommended procurement action. Second sentence: the SPR reserve status. Be specific with numbers. Data: "+context
+	prompt="You are a senior geopolitical intelligence analyst. Provide a brief, highly irregular, human-sounding flash sitrep (1-2 sentences) on the routing decision. DO NOT use generic template structures like 'ADVISORY:'. DO NOT restate the SPR status (it is already visible to the user). Vary sentence length and structure (e.g. 'Suez delays: 72h and climbing. Rerouting via Cape.' or 'Hormuz compromised. Shifting procurement to Yanbu to buy time.'). Data: "+context
 	payload={"contents":[{"parts":[{"text":prompt}]}]}
 	data=json.dumps(payload).encode("utf-8")
 	req=urllib.request.Request(url,data=data,headers={"Content-Type":"application/json"})
@@ -74,11 +74,16 @@ def generatereport(routedata,drawdowndata,corridorrisks,apikey):
 		return templatereport(routedata,drawdowndata)
 def templatereport(routedata,drawdowndata):
 	if len(routedata)==0:
-		return"ADVISORY: No viable routes calculated. Immediate SPR drawdown authorized."
+		return"Critical failure: All viable corridors compromised. Authorizing immediate full SPR drawdown."
 	best=routedata[0]
 	origin=best.get("origin","Unknown")
 	dest=best.get("destination","Unknown")
 	days=best.get("transitdays",0)
 	sprdays=drawdowndata.get("sprremainingdays",9.5)
-	status=drawdowndata.get("status","Unknown")
-	return"ADVISORY: Optimal procurement rerouting via "+origin+" to "+dest+" at "+str(days)+" transit days across "+str(len(routedata))+" analyzed routes. SPR reserves at "+str(sprdays)+" days coverage, status: "+status+"."
+	import random
+	variants = [
+		f"Supply lines unstable. Shifting {origin} cargo to {dest} ({days}d transit).",
+		f"{origin} corridor flagged. Executing {days}d reroute to {dest}.",
+		f"Critical chokepoint activity detected. Rerouting via {dest} ({days}d)."
+	]
+	return random.choice(variants)

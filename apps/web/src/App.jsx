@@ -38,7 +38,7 @@ function MapController({flyto}){
 const map=useMap()
 useEffect(()=>{
 if(flyto){map.flyTo(flyto,5,{duration:1.5})}
-},[flyto])
+},[flyto, map])
 return null
 }
 class ErrorBoundary extends React.Component{
@@ -60,9 +60,12 @@ const socketref=useRef(null)
 const reportref=useRef("")
 const typetimerref=useRef(null)
 useEffect(()=>{
+let reconnecttimer=null
+const connectws=()=>{
 const issecure=window.location.protocol==="https:"
 const protocol=issecure?"wss://":"ws://"
-const wsurl=protocol+window.location.hostname+":8000/ws"
+const host=import.meta.env.VITE_WS_HOST||(window.location.hostname+":8000")
+const wsurl=protocol+host+"/ws"
 const socket=new WebSocket(wsurl)
 socketref.current=socket
 socket.onopen=()=>{
@@ -87,11 +90,20 @@ clearInterval(typetimerref.current)
 }
 },15)
 }
-}catch(e){}
+}catch(e){console.error(e)}
 }
-socket.onclose=()=>{setconnected(false)}
+socket.onclose=()=>{
+setconnected(false)
+reconnecttimer=setTimeout(connectws,3000)
+}
 socket.onerror=()=>{setconnected(false)}
-return()=>{socket.close();if(typetimerref.current)clearInterval(typetimerref.current)}
+}
+connectws()
+return()=>{
+if(socketref.current)socketref.current.close()
+if(typetimerref.current)clearInterval(typetimerref.current)
+if(reconnecttimer)clearTimeout(reconnecttimer)
+}
 },[])
 const switchmode=useCallback((mode)=>{
 setcurrentmode(mode)
@@ -122,7 +134,7 @@ const sprtimelinedata=[
 {day:"Current",spr:drawdown?.sprremainingdays||9.5},
 {day:"Projected",spr:Math.max(0,(drawdown?.sprremainingdays||9.5)-2)}
 ]
-const routecostdata=(rankedroutes||[]).slice(0,6).map((r,i)=>({
+const routecostdata=(rankedroutes||[]).slice(0,6).map((r)=>({
 name:(r?.origin||"Rt").substring(0,8),
 cost:r?.totalcost||0
 }))

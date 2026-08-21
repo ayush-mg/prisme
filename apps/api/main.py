@@ -1,10 +1,10 @@
 import os
 import hashlib
 import json
+import time
 import asyncio
 from fastapi import FastAPI,WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 import sys
 sys.path.append("../../packages/nlp")
 sys.path.append("../../packages/physics")
@@ -26,9 +26,12 @@ except:
 	griddata=None
 @app.get("/api/grid")
 async def getgrid():
-	if griddata:
-		return griddata
-	return{"error":"Grid data not loaded"}
+	try:
+		if griddata:
+			return griddata
+		return{"error":"Grid data not loaded"}
+	except:
+		return{"error":"Grid endpoint failed"}
 @app.get("/api/scenarios")
 async def getscenarios():
 	try:
@@ -39,36 +42,69 @@ async def getscenarios():
 	except:
 		return{"error":"Scenarios not loaded"}
 @app.websocket("/ws")
-async def wsconnection(ws:WebSocket):
+async def websocketendpoint(ws:WebSocket):
 	await ws.accept()
 	lasthash=""
+	currentmode="demo"
 	activescenario="hormuz_closure"
+	demostate={"pool":[],"index":0,"lastupdated":time.time()}
+	lastpayload=None
+	try:
+		demostate["pool"]=feed.loaddemoheadlines()
+	except:
+		demostate["pool"]=["Hormuz crisis escalates"]
 	while True:
 		try:
 			try:
-				clientdata=await asyncio.wait_for(ws.receive_json(),timeout=0.1)
+				clientdata=await asyncio.wait_for(ws.receive_json(),timeout=0.05)
+				if"mode"in clientdata:
+					currentmode=clientdata["mode"]
+					lasthash=""
+					if currentmode=="demo":
+						try:
+							demostate["pool"]=feed.loaddemoheadlines()
+						except:
+							pass
+						demostate["index"]=0
+						demostate["lastupdated"]=time.time()
 				if"scenario"in clientdata:
 					activescenario=clientdata["scenario"]
 					lasthash=""
 			except:
 				pass
+			if currentmode=="demo":
+				elapsed=time.time()-demostate["lastupdated"]
+				if elapsed>6:
+					demostate["index"]=(demostate["index"]+1)%max(1,len(demostate["pool"]))
+					demostate["lastupdated"]=time.time()
 			try:
-				feedresult=feed.getsupplychaindata(activescenario)
+				feedresult=feed.getsupplychaindata(mode=currentmode,scenarioid=activescenario,demostate=demostate)
 			except:
-				feedresult={"source":"fallback","data":"Fallback: Strait of Hormuz tensions escalating."}
+				feedresult={"source":"fallback","data":"Fallback: Hormuz tensions escalating."}
 			newstext=feedresult.get("data","")
 			if isinstance(newstext,dict):
 				newstext=newstext.get("description","Fallback news")
-			currenthash=hashlib.sha256(newstext.encode("utf-8")).hexdigest()
+			currenthash=hashlib.sha256(str(newstext).encode("utf-8")).hexdigest()
 			if currenthash!=lasthash:
 				corridorrisks={}
 				if feedresult.get("source")=="fallback"and"scenario"in feedresult:
-					corridorrisks=feedresult["scenario"].get("corridorrisks",{})
+					try:
+						corridorrisks=feedresult["scenario"].get("corridorrisks",{})
+					except:
+						corridorrisks={}
+				elif currentmode=="demo":
+					try:
+						corridorrisks=extractor.keywordparse(newstext)
+					except:
+						corridorrisks={"hormuz":0.5,"redsea":0.2}
 				else:
 					try:
 						corridorrisks=extractor.extractriskdata(newstext,geminikey)
 					except:
-						corridorrisks={"hormuz":0.85,"redsea":0.3,"suez":0.15,"cape":0.02,"malacca":0.05,"westafrica":0.08,"usgulf":0.05,"pacific":0.05}
+						try:
+							corridorrisks=extractor.keywordparse(newstext)
+						except:
+							corridorrisks={"hormuz":0.5,"redsea":0.2}
 				try:
 					routedata=engines.findallroutes(griddata,corridorrisks)
 				except:
@@ -80,12 +116,19 @@ async def wsconnection(ws:WebSocket):
 				except:
 					drawdowndata={"sprremainingdays":9.5,"drawdowndays":0,"deficitbarrels":0,"gdppenalty":0,"stockoutdays":0,"stockoutbarrels":0,"status":"Unknown"}
 				try:
-					report=extractor.generatereport(routedata,drawdowndata,corridorrisks,geminikey)
+					if currentmode=="live":
+						report=extractor.generatereport(routedata,drawdowndata,corridorrisks,geminikey)
+					else:
+						report=extractor.templatereport(routedata,drawdowndata)
 				except:
-					report="ADVISORY: Optimal procurement rerouting calculated. SPR drawdown assessment complete."
+					report="ADVISORY: Route optimization complete."
 				lasthash=currenthash
-				payload={"source":feedresult.get("source","unknown"),"news":newstext,"corridorrisks":corridorrisks,"routes":routedata,"drawdown":drawdowndata,"report":report,"sprmetadata":griddata.get("sprmetadata",{})if griddata else{},"gridstats":{"refineries":len(griddata.get("refineries",[]))if griddata else 0,"originports":len(griddata.get("originports",[]))if griddata else 0,"chokepoints":len(griddata.get("chokepoints",[]))if griddata else 0,"sprlocations":len(griddata.get("sprlocations",[]))if griddata else 0}}
-				await ws.send_json(payload)
+				lastpayload={"source":feedresult.get("source","unknown"),"mode":currentmode,"news":newstext,"corridorrisks":corridorrisks,"routes":routedata,"drawdown":drawdowndata,"report":report,"sprmetadata":griddata.get("sprmetadata",{})if griddata else{},"gridstats":{"refineries":len(griddata.get("refineries",[]))if griddata else 0,"originports":len(griddata.get("originports",[]))if griddata else 0,"chokepoints":len(griddata.get("chokepoints",[]))if griddata else 0,"sprlocations":len(griddata.get("sprlocations",[]))if griddata else 0,"edges":len(griddata.get("edges",[]))if griddata else 0},"demoinfo":{"currentindex":demostate["index"],"poolsize":len(demostate["pool"])}if currentmode=="demo"else None}
+			if lastpayload:
+				try:
+					await ws.send_json(lastpayload)
+				except:
+					break
 		except:
 			pass
-		await asyncio.sleep(3)
+		await asyncio.sleep(1)

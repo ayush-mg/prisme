@@ -9,28 +9,28 @@ def loadgrid():
 def buildgraph(griddata,corridorrisks):
 	G=nx.Graph()
 	allnodes={}
-	for r in griddata["refineries"]:
+	for r in griddata.get("refineries",[]):
 		allnodes[r["name"]]=r
 		G.add_node(r["name"],lat=r["lat"],lng=r["lng"],nodetype="refinery",capacity=r.get("capacity",0))
-	for s in griddata["sprlocations"]:
+	for s in griddata.get("sprlocations",[]):
 		allnodes[s["name"]]=s
 		G.add_node(s["name"],lat=s["lat"],lng=s["lng"],nodetype="spr",capacity=s.get("capacity",0))
-	for o in griddata["originports"]:
+	for o in griddata.get("originports",[]):
 		allnodes[o["name"]]=o
 		G.add_node(o["name"],lat=o["lat"],lng=o["lng"],nodetype="origin",corridor=o.get("corridor",""))
-	for c in griddata["chokepoints"]:
+	for c in griddata.get("chokepoints",[]):
 		allnodes[c["name"]]=c
 		G.add_node(c["name"],lat=c["lat"],lng=c["lng"],nodetype="chokepoint",baserisk=c.get("baserisk",0))
-	for w in griddata["maritimewaypoints"]:
+	for w in griddata.get("maritimewaypoints",[]):
 		allnodes[w["name"]]=w
 		G.add_node(w["name"],lat=w["lat"],lng=w["lng"],nodetype="waypoint")
-	for edge in griddata["edges"]:
+	for edge in griddata.get("edges",[]):
 		fromnode=edge["from"]
 		tonode=edge["to"]
 		if fromnode not in G.nodes or tonode not in G.nodes:
 			continue
-		basecost=edge["distancenm"]
-		transitdays=edge["transitdays"]
+		basecost=edge.get("distancenm",500)
+		transitdays=edge.get("transitdays",2)
 		riskmultiplier=1.0
 		fromdata=allnodes.get(fromnode,{})
 		todata=allnodes.get(tonode,{})
@@ -38,12 +38,12 @@ def buildgraph(griddata,corridorrisks):
 			chokename=fromnode.lower()
 			for corridor,risk in corridorrisks.items():
 				if corridor in chokename:
-					riskmultiplier=1.0+risk*10
+					riskmultiplier=max(riskmultiplier,1.0+risk*10)
 		if todata.get("type")=="chokepoint":
 			chokename=tonode.lower()
 			for corridor,risk in corridorrisks.items():
 				if corridor in chokename:
-					riskmultiplier=1.0+risk*10
+					riskmultiplier=max(riskmultiplier,1.0+risk*10)
 		fromcorridor=fromdata.get("corridor","")
 		tocorridor=todata.get("corridor","")
 		if fromcorridor in corridorrisks:
@@ -68,11 +68,11 @@ def findallroutes(griddata,corridorrisks):
 					totaldistance=0
 					for i in range(len(path)-1):
 						edgedata=G.edges[path[i],path[i+1]]
-						totaltransit+=edgedata["transitdays"]
-						totaldistance+=edgedata["distancenm"]
+						totaltransit+=edgedata.get("transitdays",0)
+						totaldistance+=edgedata.get("distancenm",0)
 					coordinates=[]
 					for nodename in path:
-						nodedata=allnodes[nodename]
+						nodedata=allnodes.get(nodename,{})
 						coordinates.append([nodedata.get("lat",0),nodedata.get("lng",0)])
 					chokesinpath=[]
 					for nodename in path:
@@ -87,9 +87,9 @@ def findallroutes(griddata,corridorrisks):
 				except:
 					pass
 		allroutes.sort(key=lambda x:(x["totalcost"],x["transitdays"]))
-		return allroutes[:15]
+		return allroutes[:20]
 	except:
-		return[{"origin":"Fallback","destination":"Fallback","coordinates":[[26.2,50.2],[22.3,70.0]],"totalcost":9999,"transitdays":999,"distancenm":9999,"chokepoints":[],"path":[]}]
+		return[{"origin":"Fallback","destination":"Jamnagar (RIL)","origincountry":"Unknown","origincorridor":"unknown","refinecapacity":0,"path":[],"coordinates":[[26.2,50.2],[22.3,70.0]],"chokepoints":[],"totalcost":9999,"transitdays":999,"distancenm":9999}]
 def calculatedrawdown(bestroutetransitdays,sprmetadata):
 	try:
 		coveragedays=sprmetadata.get("coveragedays",9.5)

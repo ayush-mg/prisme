@@ -9,11 +9,11 @@
 
 ---
 
-## 🌍 Overview
+## Overview
 
 **PRISME** is an AI-powered, military-grade supply chain resilience platform built to secure India's crude oil procurement. By combining graph theory mathematics with generative AI, PRISME actively monitors global geopolitical events and automatically calculates the most cost-effective and secure maritime detours during supply chain disruptions.
 
-## 🧮 Algorithmic Deep Dive (The Mathematics of Resilience)
+## Algorithmic Deep Dive (The Mathematics of Resilience)
 
 To understand how PRISME secures the supply chain, it is essential to understand the underlying mathematics. PRISME does not rely on static fallback routes; it computes optimal detours in real-time by marrying **Graph Theory** with **Natural Language Processing (NLP)**.
 
@@ -44,20 +44,20 @@ Because compromised corridors now have astronomically high mathematical costs, t
 
 ---
 
-## 🚀 Core Features
+## Core Features
 
-### 🧠 The "Brain" (Backend Intelligence)
+### The "Brain" (Backend Intelligence)
 *   **Graph Theory Routing:** Actively inflates distance penalties based on live geopolitical risk multipliers to recalculate optimal maritime detours.
 *   **NLP Intelligence Engine:** Integrates Google Gemini 1.5 Flash to process unstructured geopolitical news headlines.
 *   **Real-time Synchronization:** Built on a completely asynchronous `FastAPI` architecture, communicating with the frontend exclusively via low-latency WebSockets.
 
-### 🎨 The "Beauty" (Frontend UX)
+### The "Beauty" (Frontend UX)
 *   **Tactical Brutalism:** A highly optimized, custom CSS "glassmorphism" UI tailored for high-contrast visibility and a military-grade aesthetic.
 *   **Interactive Cartography:** Deep integration with `react-leaflet` providing a live, animated map of active supply corridors that react instantly to API updates.
 *   **Progressive Disclosure:** Complex mathematical data is abstracted away behind sleek UI components, but available for deep-dive analysis via `framer-motion` animated modals.
 *   **SIM Mode:** A built-in catastrophic simulation engine that allows users to force the system through extreme stress-test scenarios.
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 **Frontend:**
 *   **Framework:** React 18 (Vite)
@@ -74,7 +74,7 @@ Because compromised corridors now have astronomically high mathematical costs, t
 
 ---
 
-## 💻 Local Run Instructions
+## Local Run Instructions
 
 To run PRISME locally, you will need to start both the Frontend development server and the Backend API server.
 
@@ -127,9 +127,17 @@ npm run dev
 
 ---
 
-## 🌐 Deployment Architecture
+## Deployment Architecture & Hackathon Strategy
 
 *(Deployment links will be updated here prior to final submission)*
 
 *   **Frontend Deployment:** `[LINK COMING SOON]`
 *   **Backend WebSocket URL:** `[LINK COMING SOON]`
+
+### Hackathon Evaluation Notice: The 14-Minute Ping Strategy
+Because hackathon judges evaluate projects asynchronously, we utilize a free tier hosting strategy that prevents backend servers from "spinning down" or sleeping during periods of inactivity.
+
+*   **Backend Host:** Render.com (FastAPI Web Service)
+*   **Frontend Host:** Vercel.com (React/Vite Static Site)
+*   **The Sleep Problem:** Render's free tier automatically suspends web services after 15 minutes of inactivity. If a judge visits the frontend while the backend is asleep, the WebSocket connection will time out.
+*   **The Solution:** We utilize [cron-job.org](https://cron-job.org) to send a lightweight HTTP GET request to our Render backend URL every **14 minutes**. This ensures the backend remains active 24/7 without incurring charges, guaranteeing a flawless, instant experience for the judges regardless of when they review the submission.

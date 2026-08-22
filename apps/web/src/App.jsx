@@ -102,9 +102,10 @@ return
 }
 setmatrixdata(data)
 if(data.news){
+const newChunks=data.news.split(" | ").map(n=>n.trim()).filter(n=>n.length>0)
 setNewsQueue(prev=>{
-if(prev.length===0||prev[0]!==data.news){
-return[data.news,...prev].slice(0,50)
+if(prev.length===0||prev[0]!==newChunks[0]){
+return[...newChunks,...prev].slice(0,50)
 }
 return prev
 })

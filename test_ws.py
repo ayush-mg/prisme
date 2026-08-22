@@ -1,7 +1,15 @@
 import asyncio
 import websockets
-async def test():
-    async with websockets.connect('ws://127.0.0.1:8000/ws') as ws:
-        msg = await ws.recv()
-        print("RECEIVED FROM BACKEND:", msg)
-asyncio.run(test())
+
+async def test_ws():
+    uri = "wss://prisme-backend-nduw.onrender.com/ws"
+    try:
+        async with websockets.connect(uri) as websocket:
+            print("Connected successfully!")
+            await websocket.send('{"mode": "live"}')
+            response = await websocket.recv()
+            print("Received data:", response[:100])
+    except Exception as e:
+        print("Failed to connect:", e)
+
+asyncio.run(test_ws())

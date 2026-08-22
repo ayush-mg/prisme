@@ -3,7 +3,7 @@
   <h1>PRISME | India's Energy Command</h1>
   <p><b>Predictive Risk & Inventory Simulation for Maritime Energy</b></p>
   
-  [![Live Deployment](https://img.shields.io/badge/Live_Deployment-Coming_Soon-gold?style=for-the-badge)](#)
+  [![Live Deployment](https://img.shields.io/badge/Live_Deployment-Active-gold?style=for-the-badge)](https://prisme-puce-nu.vercel.app)
   [![GitHub Repo](https://img.shields.io/badge/GitHub-Repository-blue?style=for-the-badge&logo=github)](#)
 </div>
 
@@ -131,8 +131,8 @@ npm run dev
 
 *(Deployment links will be updated here prior to final submission)*
 
-*   **Frontend Deployment:** `[LINK COMING SOON]`
-*   **Backend WebSocket URL:** `[LINK COMING SOON]`
+*   **Frontend Deployment:** `https://prisme-puce-nu.vercel.app`
+*   **Backend WebSocket URL:** `wss://prisme-backend-mduw.onrender.com/ws`
 
 ### Hackathon Evaluation Notice: The 14-Minute Ping Strategy
 Because hackathon judges evaluate projects asynchronously, we utilize a free tier hosting strategy that prevents backend servers from "spinning down" or sleeping during periods of inactivity.

@@ -258,7 +258,7 @@ return(
 <div className="w-1.5 h-1.5 border-[1px] border-black rounded-none"></div>
 </div>
 <div className="flex items-baseline gap-3">
-<span className="text-[11px] font-bold tracking-[0.2em] text-[#b5a642] uppercase font-sans hover:text-white transition-colors">PRISME <span className="text-gray-200">| India Energy Command</span></span>
+<span className="text-[11px] font-bold tracking-[0.2em] text-[#b5a642] uppercase font-sans hover:text-white transition-colors">PRISME <span className="text-gray-200">| India's Energy Command</span></span>
 <span className="text-[9px] font-mono text-gray-600 tracking-wider hover:text-gray-400 transition-colors" title="Operations Center Identifier">IEC-OPCEN</span>
 </div>
 </div>

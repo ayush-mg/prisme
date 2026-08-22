@@ -34,12 +34,14 @@ def buildgraph(griddata,corridorrisks):
 		riskmultiplier=1.0
 		fromdata=allnodes.get(fromnode,{})
 		todata=allnodes.get(tonode,{})
-		if fromdata.get("type")=="chokepoint":
+		fromnodetype=G.nodes[fromnode].get("nodetype","")
+		tonodetype=G.nodes[tonode].get("nodetype","")
+		if fromnodetype=="chokepoint":
 			chokename=fromnode.lower()
 			for corridor,risk in corridorrisks.items():
 				if corridor in chokename:
 					riskmultiplier=max(riskmultiplier,1.0+risk*10)
-		if todata.get("type")=="chokepoint":
+		if tonodetype=="chokepoint":
 			chokename=tonode.lower()
 			for corridor,risk in corridorrisks.items():
 				if corridor in chokename:
@@ -51,7 +53,8 @@ def buildgraph(griddata,corridorrisks):
 		if tocorridor in corridorrisks:
 			riskmultiplier=max(riskmultiplier,1.0+corridorrisks[tocorridor]*5)
 		weightedcost=basecost*riskmultiplier
-		G.add_edge(fromnode,tonode,weight=weightedcost,distancenm=basecost,transitdays=transitdays,riskmultiplier=riskmultiplier)
+		adjustedtransit=round(transitdays*max(1.0,(riskmultiplier-1)*0.5+1),1)
+		G.add_edge(fromnode,tonode,weight=weightedcost,distancenm=basecost,transitdays=adjustedtransit,riskmultiplier=riskmultiplier)
 	return G,allnodes
 def findallroutes(griddata,corridorrisks):
 	try:
@@ -87,7 +90,17 @@ def findallroutes(griddata,corridorrisks):
 				except:
 					pass
 		allroutes.sort(key=lambda x:(x["totalcost"],x["transitdays"]))
-		return allroutes[:20]
+		diverse_routes=[]
+		seen_origins=set()
+		for r in allroutes:
+			if r["origin"] not in seen_origins:
+				diverse_routes.append(r)
+				seen_origins.add(r["origin"])
+		for r in allroutes:
+			if len(diverse_routes)>=20: break
+			if r["origin"] in seen_origins and r not in diverse_routes:
+				diverse_routes.append(r)
+		return diverse_routes[:20]
 	except:
 		return[{"origin":"Fallback","destination":"Jamnagar (RIL)","origincountry":"Unknown","origincorridor":"unknown","refinecapacity":0,"path":[],"coordinates":[[26.2,50.2],[22.3,70.0]],"chokepoints":[],"totalcost":9999,"transitdays":999,"distancenm":9999}]
 def calculatedrawdown(bestroutetransitdays,sprmetadata):
@@ -95,7 +108,7 @@ def calculatedrawdown(bestroutetransitdays,sprmetadata):
 		coveragedays=sprmetadata.get("coveragedays",9.5)
 		consumptionbpd=sprmetadata.get("nationalconsumptionbpd",5000000)
 		gdpperbarrel=sprmetadata.get("gdpimpactperbarrel",85)
-		standardtransit=10
+		standardtransit=4
 		if bestroutetransitdays>standardtransit:
 			extradays=bestroutetransitdays-standardtransit
 			drawdowndays=min(extradays,coveragedays)

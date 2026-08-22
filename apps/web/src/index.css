@@ -123,3 +123,18 @@ body {
   font-size: 11px !important;
   box-shadow: 0px 4px 12px rgba(0,0,0,0.5) !important;
 }
+
+@keyframes route-flow { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -18; } }
+
+.animated-route-0 {
+  animation: route-flow 1.5s linear infinite;
+  filter: drop-shadow(0 0 4px #b5a642);
+}
+.animated-route-1 {
+  animation: route-flow 1.5s linear infinite;
+  filter: drop-shadow(0 0 4px #06b6d4);
+}
+.animated-route-2 {
+  animation: route-flow 1.5s linear infinite;
+  filter: drop-shadow(0 0 4px #ec4899);
+}

@@ -84,7 +84,7 @@ let ismounted=true
 const connectws=()=>{
 const issecure=window.location.protocol==="https:"
 const protocol=issecure?"wss://":"ws://"
-const host=import.meta.env.VITE_WS_HOST||(window.location.hostname+":8000")
+const host="prisme-backend-nduw.onrender.com"
 const wsurl=protocol+host+"/ws"
 const socket=new WebSocket(wsurl)
 socketref.current=socket

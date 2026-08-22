@@ -133,6 +133,9 @@ npm run dev
 *   **Frontend Deployment:** `https://prisme-puce-nu.vercel.app`
 *   **Backend WebSocket URL:** `wss://prisme-backend-mduw.onrender.com/ws`
 
+> [!IMPORTANT]
+> **Live Feed Connectivity:** The live intelligence map utilizes WebSockets (`wss://`) for real-time geopolitical updates. If your browser's adblocker or strict privacy shields block the connection (`SYS_ERROR`), please view the deployment in an **Incognito / Private window**.
+
 ### Hackathon Evaluation Notice: The 14-Minute Ping Strategy
 Because hackathon judges evaluate projects asynchronously, we utilize a free tier hosting strategy that prevents backend servers from "spinning down" or sleeping during periods of inactivity.
 

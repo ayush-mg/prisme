@@ -1,47 +1,107 @@
-# India Energy Command Center (PRISME)
+<div align="center">
+  <img src="apps/web/public/favicon.svg" alt="PRISME Logo" width="100"/>
+  <h1>PRISME | India's Energy Command</h1>
+  <p><b>Predictive Risk & Inventory Simulation for Maritime Energy</b></p>
+  
+  [![Live Deployment](https://img.shields.io/badge/Live_Deployment-Coming_Soon-gold?style=for-the-badge)](#)
+  [![GitHub Repo](https://img.shields.io/badge/GitHub-Repository-blue?style=for-the-badge&logo=github)](#)
+</div>
 
-An AI-driven supply chain resilience platform designed to model and respond to geopolitical risks (like Strait of Hormuz closures or Red Sea attacks) in real-time, redirecting India's energy procurement safely and efficiently.
+---
 
-## Features
-- **Real-Time Geopolitical Risk NLP Engine**: Parses live news using Gemini API (or a robust offline keyword matcher) to dynamically calculate risk per shipping corridor.
-- **Adaptive NetworkX Routing Engine**: Uses Dijkstra's algorithm across a 76-edge, 25-port global maritime grid, recalculating the optimal crude procurement route when a corridor becomes risky.
-- **Strategic Petroleum Reserve (SPR) Simulator**: Automatically calculates economic impact (GDP penalty) and SPR drawdown rates when optimal shipping routes exceed 10 transit days.
-- **Demo / Live Mode Toggle**: Clean separation between a presentation-safe "Demo Mode" (cycles 55 simulated crisis headlines offline) and a production "Live Mode" (RSS ingestion + LLM risk parsing with SHA-256 hash quota protection).
-- **Cinematic React Leaflet Dashboard**: Premium dark-mode UI with pulsing components, real-time matrix updates via WebSocket, and adaptive ranking charts.
+## 🌍 Overview
 
-## Tech Stack
-**Backend**: Python, FastAPI, Uvicorn, NetworkX, `urllib.request` (zero heavy SDKs for Gemini calls), `python-dotenv`.
-**Frontend**: React (Vite), Tailwind CSS v4, React Leaflet, Recharts, Framer Motion, Lucide React.
-**Data**: Stateless JSON grid telemetry (25 origin ports, 15 refineries, 6 chokepoints).
+**PRISME** is an AI-powered, military-grade supply chain resilience platform built to secure India's crude oil procurement. By combining graph theory mathematics with generative AI, PRISME actively monitors global geopolitical events and automatically calculates the most cost-effective and secure maritime detours during supply chain disruptions.
 
-## How to Run Locally
+## 🚀 Core Features
 
-### 1. Backend Setup
+### 🧠 The "Brain" (Backend Intelligence)
+*   **Algorithmic Routing (Dijkstra):** Utilizes Python's `NetworkX` to construct a graph of the global maritime network. It dynamically inflates edge weights based on live geopolitical threat scores, mathematically forcing the pathfinding algorithm to seek alternative global origin ports when primary corridors (e.g., Strait of Hormuz) are compromised.
+*   **NLP Intelligence Engine:** Integrates **Google Gemini 1.5 Flash** to ingest real-time, unstructured geopolitical news headlines and extract probabilistic threat severity scores for specific maritime chokepoints.
+*   **Resilient Fallbacks:** Features an internal Regex-based keyword engine to ensure continuous operation even if the primary LLM API becomes unavailable.
+*   **Real-time Synchronization:** Built on a completely asynchronous `FastAPI` architecture, communicating with the frontend exclusively via low-latency WebSockets.
+
+### 🎨 The "Beauty" (Frontend UX)
+*   **Tactical Brutalism:** A highly optimized, custom CSS "glassmorphism" UI tailored for high-contrast visibility and a military-grade aesthetic.
+*   **Interactive Cartography:** Deep integration with `react-leaflet` providing a live, animated map of active supply corridors that react instantly to API updates.
+*   **Progressive Disclosure:** Complex mathematical data is abstracted away behind sleek UI components, but available for deep-dive analysis via `framer-motion` animated modals (e.g., Cost Analysis, Routing Strategy).
+*   **SIM Mode:** A built-in catastrophic simulation engine that allows users to force the system through extreme stress-test scenarios (like a full blockade of the Middle East) to demonstrate the routing algorithm in real-time.
+
+## 🛠️ Technology Stack
+
+**Frontend:**
+*   **Framework:** React 18 (Vite)
+*   **Styling:** Vanilla CSS (Glassmorphism, CSS Grid)
+*   **Mapping:** React-Leaflet (`leaflet`)
+*   **Data Visualization:** Recharts
+*   **Animation:** Framer Motion
+
+**Backend:**
+*   **Framework:** FastAPI (Python) & Uvicorn
+*   **Graph Mathematics:** NetworkX
+*   **AI/NLP:** Google Generative AI (Gemini 1.5 Flash)
+*   **Communication:** WebSockets (`asyncio`)
+
+---
+
+## 💻 Local Run Instructions
+
+To run PRISME locally, you will need to start both the Frontend development server and the Backend API server.
+
+### Prerequisites
+*   Node.js (v18+)
+*   Python (3.9+)
+*   A Google Gemini API Key
+
+### 1. Backend Setup (FastAPI)
 ```bash
-# From the project root
-pip install -r requirements.txt
+# Navigate to the backend directory
+cd prisme/apps/api
 
-# Add your Gemini API key to .env
-# geminiapikey=YOUR_KEY_HERE
+# Create a virtual environment
+python -m venv venv
 
-# Start the FastAPI server (runs on port 8000)
-cd apps/api
-python -m uvicorn main:app --port 8000
+# Activate the virtual environment
+# On Windows:
+venv\Scripts\activate
+# On Mac/Linux:
+source venv/bin/activate
+
+# Install dependencies
+pip install fastapi uvicorn websockets networkx google-generativeai
+
+# Set your Gemini API Key
+# On Windows:
+set GEMINI_API_KEY=your_api_key_here
+# On Mac/Linux:
+export GEMINI_API_KEY=your_api_key_here
+
+# Start the server
+python -m uvicorn main:app --port 8000 --reload
 ```
+*The backend will now be running on `ws://localhost:8000/ws`*
 
-### 2. Frontend Setup
+### 2. Frontend Setup (React/Vite)
+Open a **new** terminal window:
 ```bash
-# In a new terminal, from the project root
-cd apps/web
+# Navigate to the frontend directory
+cd prisme/apps/web
+
+# Install dependencies
 npm install
+
+# Start the development server
 npm run dev
 ```
+*The frontend will now be running on `http://localhost:5173`*
 
-### 3. Open in Browser
-Navigate to `http://localhost:5173`. 
-The application will start in **Demo Mode** by default. Click "LIVE" in the top right to switch to real-time RSS/Gemini parsing.
+---
 
-## Deployment Notes
-- **WebSocket URL**: The frontend is configured to use `VITE_WS_HOST` if deployed, otherwise it falls back to `window.location.hostname:8000`.
-- **API Quota Protection**: The backend hashes incoming news strings. The Gemini API is ONLY called if the hash changes, preventing quota exhaustion during 24-hour deployments.
-- **Crash Isolation**: Every module call is wrapped in a try-except block that injects a deterministic fallback object. The system will not crash if the LLM hallucinating bad JSON or if an RSS feed goes down.
+## 🌐 Deployment Architecture
+
+*(Deployment links will be updated here prior to final submission)*
+
+*   **Frontend Deployment:** `[LINK COMING SOON]`
+*   **Backend WebSocket URL:** `[LINK COMING SOON]`
+
+*(See the deployment guide below for infrastructure details).*

@@ -253,7 +253,7 @@ return(
 <div className="flex flex-col h-screen w-screen bg-gray-950 text-white overflow-hidden relative">
 <motion.header initial={{y:-50,opacity:0}} animate={{y:0,opacity:1}} transition={{ type: "tween", duration: 0.2, ease: "linear" }} className="absolute top-0 left-0 w-full h-10 flex items-center justify-between z-[2000] pointer-events-none">
 <div className="flex items-center h-full pointer-events-auto border-b border-white/5 glass-panel px-6 w-full justify-between">
-<div className="flex items-center gap-4 cursor-default" title="India Energy Command — AI-powered supply chain resilience platform for India's crude oil procurement">
+<div className="flex items-center gap-4 cursor-default" title="PRISME (Predictive Risk & Inventory Simulation for Maritime Energy) — AI-powered supply chain resilience platform">
 <div className="w-4 h-4 bg-[#b5a642] flex items-center justify-center opacity-90 hover:opacity-100 transition-opacity">
 <div className="w-1.5 h-1.5 border-[1px] border-black rounded-none"></div>
 </div>

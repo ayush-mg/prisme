@@ -129,7 +129,6 @@ npm run dev
 
 ## Deployment Architecture & Hackathon Strategy
 
-*(Deployment links will be updated here prior to final submission)*
 
 *   **Frontend Deployment:** `https://prisme-puce-nu.vercel.app`
 *   **Backend WebSocket URL:** `wss://prisme-backend-mduw.onrender.com/ws`

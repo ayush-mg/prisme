@@ -596,9 +596,9 @@ pip install -r requirements.txt
 
 # Set your Gemini API Key (optional)
 # Windows:
-set GEMINI_API_KEY=your_api_key_here
+set GEMINIAPIKEY=your_api_key_here
 # Mac/Linux:
-export GEMINI_API_KEY=your_api_key_here
+export GEMINIAPIKEY=your_api_key_here
 
 # Start the server
 python -m uvicorn main:app --port 8000 --reload

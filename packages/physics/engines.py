@@ -36,16 +36,17 @@ def buildgraph(griddata,corridorrisks):
 		todata=allnodes.get(tonode,{})
 		fromnodetype=G.nodes[fromnode].get("nodetype","")
 		tonodetype=G.nodes[tonode].get("nodetype","")
+		chokemap={"strait of hormuz":["hormuz"],"bab el-mandeb":["redsea"],"suez canal":["suez"],"cape of good hope":["cape"],"strait of malacca":["malacca"],"mozambique channel":["cape"]}
 		if fromnodetype=="chokepoint":
 			chokename=fromnode.lower()
-			for corridor,risk in corridorrisks.items():
-				if corridor in chokename:
-					riskmultiplier=max(riskmultiplier,1.0+risk*10)
+			for corridor in chokemap.get(chokename,[]):
+				if corridor in corridorrisks:
+					riskmultiplier=max(riskmultiplier,1.0+corridorrisks[corridor]*10)
 		if tonodetype=="chokepoint":
 			chokename=tonode.lower()
-			for corridor,risk in corridorrisks.items():
-				if corridor in chokename:
-					riskmultiplier=max(riskmultiplier,1.0+risk*10)
+			for corridor in chokemap.get(chokename,[]):
+				if corridor in corridorrisks:
+					riskmultiplier=max(riskmultiplier,1.0+corridorrisks[corridor]*10)
 		fromcorridor=fromdata.get("corridor","")
 		tocorridor=todata.get("corridor","")
 		if fromcorridor in corridorrisks:
